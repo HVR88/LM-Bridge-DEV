@@ -829,6 +829,82 @@ def register_config_routes() -> None:
         except AssertionError:
             pass
 
+    if "/config/refresh-all-artists" not in existing_rules:
+        async def _limbo_refresh_all_artists():
+            base_url = root_patch.get_lidarr_base_url()
+            api_key = root_patch.get_lidarr_api_key()
+            if not base_url or not api_key:
+                return jsonify({"ok": False, "error": "Missing Lidarr base URL or API key."}), 400
+
+            errors: List[str] = []
+            artist_ids: List[int] = []
+            queued: List[int] = []
+            timeout = aiohttp.ClientTimeout(total=60)
+            headers = {"X-Api-Key": api_key}
+
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                artists_url = base_url.rstrip("/") + "/api/v1/artist"
+                try:
+                    async with session.get(artists_url, headers=headers) as resp:
+                        if resp.status != 200:
+                            return (
+                                jsonify(
+                                    {
+                                        "ok": False,
+                                        "error": f"Unable to load Lidarr artists (status {resp.status}).",
+                                    }
+                                ),
+                                502,
+                            )
+                        artists = await resp.json()
+                except Exception as exc:
+                    return (
+                        jsonify(
+                            {
+                                "ok": False,
+                                "error": f"Unable to load Lidarr artists: {exc}",
+                            }
+                        ),
+                        502,
+                    )
+
+                for artist in artists or []:
+                    artist_id = artist.get("id")
+                    if isinstance(artist_id, int):
+                        artist_ids.append(artist_id)
+
+                artist_ids = sorted(set(artist_ids))
+                cmd_url = base_url.rstrip("/") + "/api/v1/command"
+
+                for artist_id in artist_ids:
+                    try:
+                        payload = {"name": "RefreshArtist", "artistId": artist_id}
+                        async with session.post(cmd_url, headers=headers, json=payload) as resp:
+                            if resp.status not in {200, 201}:
+                                errors.append(f"Artist {artist_id}: status {resp.status}")
+                                continue
+                        queued.append(artist_id)
+                    except Exception as exc:
+                        errors.append(f"Artist {artist_id}: {exc}")
+
+            return jsonify(
+                {
+                    "ok": True,
+                    "total_artists": len(artist_ids),
+                    "queued_artist_ids": queued,
+                    "errors": errors,
+                }
+            )
+
+        try:
+            upstream_app.app.add_url_rule(
+                "/config/refresh-all-artists",
+                view_func=_limbo_refresh_all_artists,
+                methods=["POST"],
+            )
+        except AssertionError:
+            pass
+
     if "/config/validate-ids" not in existing_rules:
         async def _warm_lidarr(base_url: str, api_key: str, session: aiohttp.ClientSession) -> None:
             global _LIDARR_WARMED

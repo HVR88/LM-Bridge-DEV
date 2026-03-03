@@ -214,9 +214,17 @@ def main() -> int:
     )
     parser.add_argument(
         "--open",
+        dest="open",
         action="store_true",
-        help="Open the generated file (macOS: uses 'open').",
+        help="Open the generated file (default; macOS uses 'open').",
     )
+    parser.add_argument(
+        "--no-open",
+        dest="open",
+        action="store_false",
+        help="Do not open the generated file automatically.",
+    )
+    parser.set_defaults(open=True)
     args = parser.parse_args()
 
     output_path = Path(args.output).expanduser().resolve()

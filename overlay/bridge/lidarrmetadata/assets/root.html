@@ -603,7 +603,7 @@
           esc
         </button>
         <div class="confirm-modal__content">
-          <h2 class="settings-modal__title">Confirm</h2>
+          <h2 class="settings-modal__title" data-confirm-title>Confirm</h2>
           <p class="settings-modal__subtitle" data-confirm-message></p>
           <div class="confirm-modal__actions">
             <a href="#" class="modal-link modal-link-cancel" data-confirm-cancel
@@ -647,7 +647,7 @@
         class="modal__panel refresh-modal__panel"
         role="dialog"
         aria-modal="true"
-        aria-label="Bulk Refresh"
+        aria-label="Automatic Refresh"
       >
         <button class="modal__esc-hint" type="button" data-modal-close>
           esc
@@ -658,29 +658,123 @@
             Paste Artist or Album MBIDs, Lidarr or MusicBrainz URLs.
           </p>
           <div class="refresh-input-wrap">
-            <div class="refresh-resolve-floating">
-              <div class="refresh-resolve-toggle">
-                <span class="refresh-resolve-toggle__label">Resolve Names</span>
-                <label class="config-toggle">
-                  <input
-                    type="checkbox"
-                    data-refresh-resolve-toggle
-                    __REFRESH_RESOLVE_NAMES__
-                  />
-                  <span class="config-toggle__track" aria-hidden="true">
-                    <span class="config-toggle__thumb"></span>
-                  </span>
-                </label>
+            <div class="refresh-auto-config">
+              <div class="config-value refresh-auto-config__value">
+                <span class="config-value-text" data-refresh-auto-value
+                  >AUTO REFRESH</span
+                >
+              </div>
+              <button
+                type="button"
+                class="config-action refresh-auto-config__toggle"
+                data-refresh-auto-toggle
+                aria-haspopup="true"
+                aria-expanded="false"
+                aria-label="Refresh mode"
+              >
+                <span class="config-action__inner" aria-hidden="true"
+                  >__CONFIG_MENU_ICON__</span
+                >
+              </button>
+              <div
+                class="config-menu refresh-auto-config__menu"
+                data-refresh-auto-menu
+              >
+                <button
+                  type="button"
+                  class="config-menu-item"
+                  data-refresh-auto-option="auto"
+                >
+                  AUTO REFRESH
+                </button>
+                <button
+                  type="button"
+                  class="config-menu-item"
+                  data-refresh-auto-option="manual"
+                >
+                  MANUAL REFRESH
+                </button>
               </div>
             </div>
-            <div
-              class="refresh-editor"
-              contenteditable="true"
-              role="textbox"
-              aria-multiline="true"
-              data-refresh-editor
-              data-placeholder="8434409e-baa9-4e12-b4aa-566a91c7d7cf"
-            ></div>
+            <div class="refresh-editor-stack">
+              <div
+                class="refresh-editor"
+                contenteditable="true"
+                role="textbox"
+                aria-multiline="true"
+                data-refresh-editor
+                data-placeholder="8434409e-baa9-4e12-b4aa-566a91c7d7cf"
+              ></div>
+              <div class="refresh-under-controls">
+                <div class="refresh-resolve-toggle">
+                  <span class="refresh-resolve-toggle__label"
+                    >Resolve Names</span
+                  >
+                  <label class="config-toggle">
+                    <input
+                      type="checkbox"
+                      data-refresh-resolve-toggle
+                      __REFRESH_RESOLVE_NAMES__
+                    />
+                    <span class="config-toggle__track" aria-hidden="true">
+                      <span class="config-toggle__thumb"></span>
+                    </span>
+                  </label>
+                </div>
+                <div class="refresh-switching-config">
+                  <span class="refresh-switching-config__label"
+                    >UPDATE 'SWITCH RELEASE'</span
+                  >
+                  <div class="refresh-switching-config__row">
+                    <div class="config-value refresh-switching-config__value">
+                      <span
+                        class="settings-field__chip"
+                        data-refresh-switching-value
+                        >NO CHANGE</span
+                      >
+                    </div>
+                    <button
+                      type="button"
+                      class="config-action refresh-switching-config__toggle"
+                      data-refresh-switching-toggle
+                      aria-haspopup="true"
+                      aria-expanded="false"
+                      aria-label="Release switching"
+                    >
+                      <span class="config-action__inner" aria-hidden="true"
+                        >__CONFIG_MENU_ICON__</span
+                      >
+                    </button>
+                    <div
+                      class="config-menu refresh-switching-config__menu"
+                      data-refresh-switching-menu
+                    >
+                      <button
+                        type="button"
+                        class="config-menu-item"
+                        data-refresh-switching-option="no-change"
+                      >
+                        NO CHANGE
+                      </button>
+                      <button
+                        type="button"
+                        class="config-menu-item"
+                        data-refresh-switching-option="auto"
+                      >
+                        AUTO
+                      </button>
+                      <button
+                        type="button"
+                        class="config-menu-item"
+                        data-refresh-switching-option="off"
+                      >
+                        OFF
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
             <div class="refresh-side">
               <div class="refresh-status" data-refresh-status>
                 <span class="refresh-status__item">
@@ -709,6 +803,15 @@
               >
                 <span class="action-button__inner">
                   <span class="action-button__label">REFRESH</span>
+                </span>
+              </button>
+              <button
+                class="action-button action-button--refresh-all refresh-submit-all-inline"
+                type="button"
+                data-refresh-all-button
+              >
+                <span class="action-button__inner">
+                  <span class="action-button__label">REFRESH&nbsp;ALL</span>
                 </span>
               </button>
             </div>
@@ -1492,6 +1595,7 @@
       const confirmModal = document.querySelector(
         '[data-modal="confirm-action"]',
       );
+      const confirmTitle = confirmModal?.querySelector("[data-confirm-title]");
       const confirmMessage = confirmModal?.querySelector(
         "[data-confirm-message]",
       );
@@ -1506,6 +1610,9 @@
       const openConfirm = (message, action, options = {}) => {
         if (!confirmModal || !confirmMessage) {
           return;
+        }
+        if (confirmTitle) {
+          confirmTitle.textContent = options.title || "Confirm";
         }
         confirmMessage.textContent = message;
         pendingConfirmAction = action;
@@ -1777,9 +1884,9 @@
         if (initial !== null) {
           let uptimeSeconds = initial;
           setInterval(() => {
-            uptimeSeconds += 30;
+            uptimeSeconds += 3;
             uptimeValue.textContent = formatUptime(uptimeSeconds);
-          }, 30000);
+          }, 3000);
         }
       }
 
@@ -1840,6 +1947,9 @@
 
       const refreshEditor = document.querySelector("[data-refresh-editor]");
       const refreshButton = document.querySelector("[data-refresh-button]");
+      const refreshAllButton = document.querySelector(
+        "[data-refresh-all-button]",
+      );
       const refreshStatus = document.querySelector("[data-refresh-status]");
       const refreshArtistCount = document.querySelector(
         "[data-refresh-count-artist]",
@@ -1852,6 +1962,30 @@
       );
       const refreshResolveToggle = document.querySelector(
         "[data-refresh-resolve-toggle]",
+      );
+      const refreshAutoToggleButton = document.querySelector(
+        "[data-refresh-auto-toggle]",
+      );
+      const refreshAutoMenu = document.querySelector(
+        "[data-refresh-auto-menu]",
+      );
+      const refreshAutoValue = document.querySelector(
+        "[data-refresh-auto-value]",
+      );
+      const refreshAutoMenuOptions = Array.from(
+        document.querySelectorAll("[data-refresh-auto-option]"),
+      );
+      const refreshSwitchingToggleButton = document.querySelector(
+        "[data-refresh-switching-toggle]",
+      );
+      const refreshSwitchingMenu = document.querySelector(
+        "[data-refresh-switching-menu]",
+      );
+      const refreshSwitchingValue = document.querySelector(
+        "[data-refresh-switching-value]",
+      );
+      const refreshSwitchingMenuOptions = Array.from(
+        document.querySelectorAll("[data-refresh-switching-option]"),
       );
       const providerCapabilities = (() => {
         try {
@@ -2127,8 +2261,16 @@
       let refreshInputGuard = false;
       let refreshValidationActive = false;
       let refreshValidationSeq = 0;
+      let refreshAutoSubmitPending = false;
+      let refreshAutoSubmitInFlight = false;
+      let refreshAutoSubmitKeys = new Set();
+      let refreshLastQueuedSignature = "";
+      let refreshAutoRefreshEnabled = true;
+      const REFRESH_HISTORY_KEY = "limbo_refresh_history_v1";
+      const REFRESH_COOLDOWN_MS = 5 * 60 * 1000;
       let refreshWarmupOnLoadDone = false;
       let refreshWarmupOnOpenDone = false;
+      let refreshAutoReleaseSwitchingMode = "no-change";
 
       const sanitizeApiKey = (value = "") =>
         value
@@ -2414,6 +2556,24 @@
           ? `mbid:${token.toLowerCase()}`
           : `lidarr:${token}`;
 
+      const isTokenInRefreshCooldown = (token) => {
+        const key = getTokenKey(token);
+        try {
+          const raw = window.localStorage.getItem(REFRESH_HISTORY_KEY);
+          if (!raw) {
+            return false;
+          }
+          const parsed = JSON.parse(raw);
+          const ts = Number(parsed?.[key] || 0);
+          if (!Number.isFinite(ts)) {
+            return false;
+          }
+          return Date.now() - ts < REFRESH_COOLDOWN_MS;
+        } catch (error) {
+          return false;
+        }
+      };
+
       const updateRefreshStatus = () => {
         if (!refreshStatus) {
           return;
@@ -2499,7 +2659,10 @@
       const createTokenElement = (token) => {
         const span = document.createElement("span");
         const kindClass = kindClassForToken(token);
-        span.className = `token ${statusClassForToken(token)}${kindClass ? ` ${kindClass}` : ""}`;
+        const refreshedClass = isTokenInRefreshCooldown(token)
+          ? " token-refreshed"
+          : "";
+        span.className = `token ${statusClassForToken(token)}${kindClass ? ` ${kindClass}` : ""}${refreshedClass}`;
         const normalizedToken = token;
         const tokenKey = getTokenKey(normalizedToken);
         span.dataset.token = normalizedToken;
@@ -2549,9 +2712,12 @@
           const token = node.dataset.token || "";
           const duplicate = node.classList.contains("token-duplicate");
           const kindClass = kindClassForToken(token);
+          const refreshedClass = isTokenInRefreshCooldown(token)
+            ? " token-refreshed"
+            : "";
           node.className = `token ${statusClassForToken(token)}${kindClass ? ` ${kindClass}` : ""}${
             duplicate ? " token-duplicate" : ""
-          }`;
+          }${refreshedClass}`;
         });
       };
 
@@ -2850,6 +3016,7 @@
           });
           updateTokenClasses();
           updateRefreshStatus();
+          maybeAutoQueueRefresh();
         } catch (error) {
           if (error && error.name === "AbortError") {
             return;
@@ -2911,10 +3078,31 @@
           (match) => match[0],
         );
         if (tokens.length) {
+          const existingKeys = new Set(
+            getEditorTokens().map((token) => getTokenKey(token)),
+          );
+          const newKeys = new Set();
+          tokens.forEach((token) => {
+            const key = getTokenKey(token);
+            if (existingKeys.has(key) || newKeys.has(key)) {
+              return;
+            }
+            newKeys.add(key);
+          });
+          if (refreshAutoRefreshEnabled) {
+            refreshAutoSubmitKeys = newKeys;
+            refreshAutoSubmitPending = refreshAutoSubmitKeys.size > 0;
+          } else {
+            refreshAutoSubmitKeys.clear();
+            refreshAutoSubmitPending = false;
+          }
+          refreshLastQueuedSignature = "";
           appendTokensToEditor(tokens);
           updateRefreshState();
           return;
         }
+        refreshAutoSubmitKeys.clear();
+        refreshAutoSubmitPending = false;
         const caret = getCaretOffset(refreshEditor);
         rebuildEditorFromText(normalized, caret);
         updateRefreshState();
@@ -2924,6 +3112,8 @@
         if (!refreshEditor || refreshInputGuard) {
           return;
         }
+        refreshAutoSubmitKeys.clear();
+        refreshAutoSubmitPending = false;
         const caret = getCaretOffset(refreshEditor);
         const text = refreshEditor.textContent || "";
         rebuildEditorFromText(text, caret);
@@ -3055,7 +3245,302 @@
         };
       };
 
-      const runRefreshRequest = async (mbids, lidarrIds) => {
+      const normalizeRefreshHistoryPayload = (payload) => {
+        if (!payload || typeof payload !== "object") {
+          return {};
+        }
+        const now = Date.now();
+        const normalized = {};
+        Object.entries(payload).forEach(([key, value]) => {
+          const ts = Number(value);
+          if (!Number.isFinite(ts)) {
+            return;
+          }
+          if (now - ts >= REFRESH_COOLDOWN_MS) {
+            return;
+          }
+          normalized[key] = ts;
+        });
+        return normalized;
+      };
+
+      const loadRefreshHistory = () => {
+        try {
+          const raw = window.localStorage.getItem(REFRESH_HISTORY_KEY);
+          if (!raw) {
+            return {};
+          }
+          const parsed = JSON.parse(raw);
+          return normalizeRefreshHistoryPayload(parsed);
+        } catch (error) {
+          return {};
+        }
+      };
+
+      const saveRefreshHistory = (history) => {
+        try {
+          window.localStorage.setItem(
+            REFRESH_HISTORY_KEY,
+            JSON.stringify(history),
+          );
+        } catch (error) {
+          // best-effort only
+        }
+      };
+
+      const setRefreshAutoRefreshEnabled = (value) => {
+        refreshAutoRefreshEnabled = Boolean(value);
+        if (refreshButton) {
+          refreshButton.hidden = refreshAutoRefreshEnabled;
+        }
+        if (refreshAutoValue) {
+          refreshAutoValue.textContent = refreshAutoRefreshEnabled
+            ? "AUTO REFRESH"
+            : "MANUAL REFRESH";
+        }
+        if (!refreshAutoRefreshEnabled) {
+          refreshAutoSubmitKeys.clear();
+          refreshAutoSubmitPending = false;
+          refreshAutoSubmitInFlight = false;
+        }
+        if (refreshAutoMenuOptions.length) {
+          const selectedMode = refreshAutoRefreshEnabled ? "auto" : "manual";
+          refreshAutoMenuOptions.forEach((button) => {
+            button.classList.toggle(
+              "selected",
+              button.dataset.refreshAutoOption === selectedMode,
+            );
+          });
+        }
+        if (window.limboRefreshControls) {
+          window.limboRefreshControls.auto_refresh = refreshAutoRefreshEnabled;
+        }
+      };
+
+      const getRefreshAutoRefreshEnabled = () => refreshAutoRefreshEnabled;
+      const setRefreshAutoReleaseSwitchingMode = (value) => {
+        const normalized = String(value || "")
+          .trim()
+          .toLowerCase();
+        const nextMode =
+          normalized === "auto" || normalized === "off"
+            ? normalized
+            : "no-change";
+        refreshAutoReleaseSwitchingMode = nextMode;
+        if (refreshSwitchingValue) {
+          refreshSwitchingValue.textContent =
+            nextMode === "auto"
+              ? "AUTO"
+              : nextMode === "off"
+                ? "OFF"
+                : "NO CHANGE";
+        }
+        if (refreshSwitchingMenuOptions.length) {
+          refreshSwitchingMenuOptions.forEach((button) => {
+            button.classList.toggle(
+              "selected",
+              (button.dataset.refreshSwitchingOption || "").toLowerCase() ===
+                nextMode,
+            );
+          });
+        }
+      };
+      const getRefreshAutoReleaseSwitchingMode = () =>
+        refreshAutoReleaseSwitchingMode;
+
+      window.limboRefreshControls = window.limboRefreshControls || {};
+      window.limboRefreshControls.setAutoRefresh = setRefreshAutoRefreshEnabled;
+      window.limboRefreshControls.getAutoRefresh = getRefreshAutoRefreshEnabled;
+      window.limboRefreshControls.auto_refresh = refreshAutoRefreshEnabled;
+
+      const filterIdsByRefreshCooldown = (mbids, lidarrIds) => {
+        const now = Date.now();
+        const history = loadRefreshHistory();
+        const mbidsAllowed = [];
+        const lidarrIdsAllowed = [];
+        let skipped = 0;
+
+        mbids.forEach((mbid) => {
+          const normalized = String(mbid || "").toLowerCase();
+          if (!normalized) {
+            return;
+          }
+          const key = `mbid:${normalized}`;
+          const ts = Number(history[key] || 0);
+          if (ts && now - ts < REFRESH_COOLDOWN_MS) {
+            skipped += 1;
+            return;
+          }
+          mbidsAllowed.push(normalized);
+        });
+
+        lidarrIds.forEach((value) => {
+          const id = Number(value);
+          if (!Number.isFinite(id)) {
+            return;
+          }
+          const key = `lidarr:${id}`;
+          const ts = Number(history[key] || 0);
+          if (ts && now - ts < REFRESH_COOLDOWN_MS) {
+            skipped += 1;
+            return;
+          }
+          lidarrIdsAllowed.push(id);
+        });
+
+        saveRefreshHistory(history);
+        return { mbidsAllowed, lidarrIdsAllowed, skipped };
+      };
+
+      const recordRefreshHistory = (mbids, lidarrIds) => {
+        const now = Date.now();
+        const history = loadRefreshHistory();
+        mbids.forEach((mbid) => {
+          const normalized = String(mbid || "").toLowerCase();
+          if (!normalized) {
+            return;
+          }
+          history[`mbid:${normalized}`] = now;
+        });
+        lidarrIds.forEach((value) => {
+          const id = Number(value);
+          if (!Number.isFinite(id)) {
+            return;
+          }
+          history[`lidarr:${id}`] = now;
+        });
+        saveRefreshHistory(history);
+      };
+
+      const queueRefreshFromIds = (
+        mbids,
+        lidarrIds,
+        { confirmLarge = true } = {},
+      ) => {
+        if (!mbids.length && !lidarrIds.length) {
+          return false;
+        }
+        const { mbidsAllowed, lidarrIdsAllowed, skipped } =
+          filterIdsByRefreshCooldown(mbids, lidarrIds);
+        if (!mbidsAllowed.length && !lidarrIdsAllowed.length) {
+          if (skipped > 0) {
+            suppressHover();
+            openInfo(
+              `Skipped ${skipped} ID${
+                skipped === 1 ? "" : "s"
+              } already refreshed in the last 5 minutes.`,
+            );
+          }
+          return false;
+        }
+        refreshValidationActive = false;
+        if (refreshValidateController) {
+          refreshValidateController.abort();
+        }
+        closeModal(refreshModal);
+        const totalIds = mbidsAllowed.length + lidarrIdsAllowed.length;
+        if (confirmLarge && totalIds >= 10) {
+          const parts = [];
+          if (mbidsAllowed.length) {
+            parts.push(
+              `${mbidsAllowed.length} MBID${
+                mbidsAllowed.length === 1 ? "" : "s"
+              }`,
+            );
+          }
+          if (lidarrIdsAllowed.length) {
+            parts.push(
+              `${lidarrIdsAllowed.length} Lidarr ID${
+                lidarrIdsAllowed.length === 1 ? "" : "s"
+              }`,
+            );
+          }
+          openConfirm(`Queue refresh for ${parts.join(" and ")}?`, () =>
+            runRefreshRequest(mbidsAllowed, lidarrIdsAllowed, {
+              skippedCooldown: skipped,
+            }),
+          );
+        } else {
+          runRefreshRequest(mbidsAllowed, lidarrIdsAllowed, {
+            skippedCooldown: skipped,
+          });
+        }
+        return true;
+      };
+
+      const maybeAutoQueueRefresh = () => {
+        if (
+          !refreshAutoRefreshEnabled ||
+          !refreshValidationActive ||
+          !refreshAutoSubmitPending ||
+          refreshAutoSubmitInFlight ||
+          !refreshModal?.classList.contains("open")
+        ) {
+          return;
+        }
+        const liveKeys = new Set(
+          getEditorTokens().map((token) => getTokenKey(token)),
+        );
+        refreshAutoSubmitKeys.forEach((key) => {
+          if (!liveKeys.has(key)) {
+            refreshAutoSubmitKeys.delete(key);
+          }
+        });
+        if (!refreshAutoSubmitKeys.size) {
+          refreshAutoSubmitPending = false;
+          return;
+        }
+        const hasPending = Array.from(refreshAutoSubmitKeys).some((key) => {
+          return (refreshTokenState.get(key) || "pending") === "pending";
+        });
+        if (hasPending) {
+          return;
+        }
+        const mbids = [];
+        const lidarrIds = [];
+        refreshAutoSubmitKeys.forEach((key) => {
+          if (refreshTokenState.get(key) !== "valid") {
+            return;
+          }
+          if (key.startsWith("mbid:")) {
+            mbids.push(key.slice(5));
+            return;
+          }
+          if (key.startsWith("lidarr:")) {
+            const id = Number(key.slice(7));
+            if (Number.isFinite(id)) {
+              lidarrIds.push(id);
+            }
+          }
+        });
+        if (!mbids.length && !lidarrIds.length) {
+          refreshAutoSubmitPending = false;
+          refreshAutoSubmitKeys.clear();
+          return;
+        }
+        const signature = `${mbids.slice().sort().join(",")}|${lidarrIds
+          .slice()
+          .sort((a, b) => a - b)
+          .join(",")}`;
+        if (signature === refreshLastQueuedSignature) {
+          refreshAutoSubmitPending = false;
+          return;
+        }
+        refreshAutoSubmitInFlight = true;
+        refreshAutoSubmitPending = false;
+        refreshAutoSubmitKeys.clear();
+        refreshLastQueuedSignature = signature;
+        queueRefreshFromIds(mbids, lidarrIds, {
+          confirmLarge: false,
+        });
+        refreshAutoSubmitInFlight = false;
+      };
+
+      const runRefreshRequest = async (
+        mbids,
+        lidarrIds,
+        { skippedCooldown = 0 } = {},
+      ) => {
         if (
           (!mbids || mbids.length === 0) &&
           (!lidarrIds || lidarrIds.length === 0)
@@ -3085,11 +3570,15 @@
           const queued = payload.queued_ids?.length || 0;
           const missing = payload.missing_mbids?.length || 0;
           const errors = payload.errors?.length || 0;
+          recordRefreshHistory(mbids, lidarrIds);
           suppressHover();
           openInfo(
             `Queued ${queued} refresh request(s).` +
               (missing ? ` Missing MBIDs: ${missing}.` : "") +
-              (errors ? ` Errors: ${errors}.` : ""),
+              (errors ? ` Errors: ${errors}.` : "") +
+              (skippedCooldown
+                ? ` Skipped recent IDs: ${skippedCooldown}.`
+                : ""),
           );
         } catch (error) {
           suppressHover();
@@ -3124,32 +3613,59 @@
           if (!mbids.length && !lidarrIds.length) {
             return;
           }
-          refreshValidationActive = false;
-          if (refreshValidateController) {
-            refreshValidateController.abort();
-          }
-          closeModal(refreshModal);
-          const totalIds = mbids.length + lidarrIds.length;
-          if (totalIds >= 10) {
-            const parts = [];
-            if (mbids.length) {
-              parts.push(
-                `${mbids.length} MBID${mbids.length === 1 ? "" : "s"}`,
-              );
-            }
-            if (lidarrIds.length) {
-              parts.push(
-                `${lidarrIds.length} Lidarr ID${
-                  lidarrIds.length === 1 ? "" : "s"
-                }`,
-              );
-            }
-            openConfirm(`Queue refresh for ${parts.join(" and ")}?`, () =>
-              runRefreshRequest(mbids, lidarrIds),
-            );
-          } else {
-            runRefreshRequest(mbids, lidarrIds);
-          }
+          refreshAutoSubmitKeys.clear();
+          refreshAutoSubmitPending = false;
+          queueRefreshFromIds(mbids, lidarrIds, {
+            confirmLarge: true,
+          });
+        });
+      }
+      if (refreshAllButton) {
+        refreshAllButton.addEventListener("click", () => {
+          openConfirm(
+            "Refreshing all releases will create a series of long running processes in Lidarr. These may block or slow down other actions while running.",
+            async () => {
+              refreshAllButton.disabled = true;
+              try {
+                const response = await fetch("/config/refresh-all-artists", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                });
+                const payload = await response.json().catch(() => ({}));
+                if (!response.ok || !payload.ok) {
+                  suppressHover();
+                  openInfo(
+                    payload.error
+                      ? `Error: ${payload.error}`
+                      : `Error (${response.status})`,
+                  );
+                  return;
+                }
+                const totalArtists = Number(payload.total_artists || 0);
+                const queuedArtists = Array.isArray(payload.queued_artist_ids)
+                  ? payload.queued_artist_ids.length
+                  : 0;
+                const errors = Array.isArray(payload.errors)
+                  ? payload.errors.length
+                  : 0;
+                suppressHover();
+                openInfo(
+                  `Queued ${queuedArtists} refresh request(s) across ${totalArtists} artist(s).` +
+                    (errors ? ` Errors: ${errors}.` : ""),
+                );
+              } catch (error) {
+                suppressHover();
+                openInfo(`Request failed: ${error}`);
+              } finally {
+                refreshAllButton.disabled = false;
+              }
+            },
+            {
+              title: "IMPORTANT",
+              cancelLabel: "CANCEL",
+              okLabel: "REFRESH",
+            },
+          );
         });
       }
       if (refreshResolveToggle) {
@@ -3173,6 +3689,123 @@
           runRefreshNameResolve(mbids);
         });
       }
+      const setupConfigSelectControl = ({
+        toggleButton,
+        menu,
+        optionButtons,
+        getCurrentValue,
+        setCurrentValue,
+        getOptionValue = (button) =>
+          button?.dataset?.value || button?.dataset?.option || "",
+      }) => {
+        if (
+          !toggleButton ||
+          !menu ||
+          !Array.isArray(optionButtons) ||
+          optionButtons.length === 0
+        ) {
+          return;
+        }
+        const syncSelectedState = () => {
+          const current = String(getCurrentValue?.() || "");
+          optionButtons.forEach((button) => {
+            const optionValue = String(getOptionValue(button) || "");
+            button.classList.toggle(
+              "selected",
+              optionValue.toLowerCase() === current.toLowerCase(),
+            );
+          });
+        };
+        const closeMenu = () => {
+          menu.classList.remove("open");
+          menu.style.removeProperty("--menu-shift-x");
+          menu.style.removeProperty("--menu-shift-y");
+          menu.style.removeProperty("maxHeight");
+          menu.style.removeProperty("overflowY");
+          toggleButton.setAttribute("aria-expanded", "false");
+        };
+        syncSelectedState();
+        toggleButton.addEventListener("click", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          syncSelectedState();
+          document.querySelectorAll(".config-menu.open").forEach((openMenu) => {
+            if (openMenu !== menu) {
+              openMenu.classList.remove("open");
+              openMenu.style.removeProperty("--menu-shift-x");
+              openMenu.style.removeProperty("--menu-shift-y");
+              openMenu.style.removeProperty("maxHeight");
+              openMenu.style.removeProperty("overflowY");
+            }
+          });
+          const willOpen = !menu.classList.contains("open");
+          menu.classList.toggle("open", willOpen);
+          toggleButton.setAttribute(
+            "aria-expanded",
+            willOpen ? "true" : "false",
+          );
+          if (willOpen) {
+            requestAnimationFrame(() => {
+              adjustMenuPosition(menu);
+            });
+          } else {
+            closeMenu();
+          }
+        });
+        menu.addEventListener("click", (event) => {
+          event.stopPropagation();
+        });
+        optionButtons.forEach((button) => {
+          button.addEventListener("click", (event) => {
+            event.preventDefault();
+            const nextValue = String(getOptionValue(button) || "");
+            if (nextValue) {
+              setCurrentValue?.(nextValue);
+              syncSelectedState();
+            }
+            closeMenu();
+          });
+        });
+        document.addEventListener("click", () => {
+          if (menu.classList.contains("open")) {
+            closeMenu();
+          }
+        });
+        document.addEventListener("keydown", (event) => {
+          if (event.key === "Escape" && menu.classList.contains("open")) {
+            closeMenu();
+          }
+        });
+      };
+      if (refreshAutoToggleButton && refreshAutoMenu) {
+        setRefreshAutoRefreshEnabled(refreshAutoRefreshEnabled);
+        setupConfigSelectControl({
+          toggleButton: refreshAutoToggleButton,
+          menu: refreshAutoMenu,
+          optionButtons: refreshAutoMenuOptions,
+          getCurrentValue: () =>
+            getRefreshAutoRefreshEnabled() ? "auto" : "manual",
+          setCurrentValue: (value) =>
+            setRefreshAutoRefreshEnabled(
+              String(value).toLowerCase() === "auto",
+            ),
+          getOptionValue: (button) => button.dataset.refreshAutoOption || "",
+        });
+      }
+      if (refreshSwitchingToggleButton && refreshSwitchingMenu) {
+        setRefreshAutoReleaseSwitchingMode(refreshAutoReleaseSwitchingMode);
+        setupConfigSelectControl({
+          toggleButton: refreshSwitchingToggleButton,
+          menu: refreshSwitchingMenu,
+          optionButtons: refreshSwitchingMenuOptions,
+          getCurrentValue: () => getRefreshAutoReleaseSwitchingMode(),
+          setCurrentValue: (value) => {
+            setRefreshAutoReleaseSwitchingMode(String(value || ""));
+          },
+          getOptionValue: (button) =>
+            button.dataset.refreshSwitchingOption || "",
+        });
+      }
 
       const refreshCancelButton = document.querySelector(
         "[data-refresh-cancel]",
@@ -3181,6 +3814,8 @@
         refreshCancelButton.addEventListener("click", () => {
           if (refreshEditor) {
             refreshEditor.textContent = "";
+            refreshAutoSubmitKeys.clear();
+            refreshAutoSubmitPending = false;
             updateRefreshState();
           }
         });
@@ -3380,6 +4015,7 @@
             type: "single",
             compact: true,
             narrow: true,
+            hideCancel: true,
             items: [
               { label: "ANY", value: "any" },
               { label: "DIGITAL", value: "digital" },
@@ -3502,9 +4138,12 @@
           });
         }
         if (config.type === "multi" || config.type === "single") {
-          if (config.footer === "apply") {
+          if (config.footer === "apply" || config.footer === "apply-only") {
             const footer = document.createElement("div");
             footer.className = "config-menu-footer";
+            if (config.footer === "apply-only") {
+              footer.classList.add("config-menu-footer--plain");
+            }
             if (config.clearLabel) {
               const clear = document.createElement("button");
               clear.type = "button";
@@ -3512,20 +4151,22 @@
               clear.className = "config-menu-text config-menu-clear";
               footer.appendChild(clear);
             }
-            const cancel = document.createElement("span");
-            cancel.textContent = "CANCEL";
-            cancel.className = "config-menu-text config-menu-cancel";
-            cancel.setAttribute("role", "button");
-            cancel.setAttribute("tabindex", "0");
             const apply = document.createElement("span");
             apply.textContent = "APPLY";
             apply.className = "config-menu-text config-menu-apply";
             apply.setAttribute("role", "button");
             apply.setAttribute("tabindex", "0");
-            footer.appendChild(cancel);
+            if (config.footer !== "apply-only") {
+              const cancel = document.createElement("span");
+              cancel.textContent = "CANCEL";
+              cancel.className = "config-menu-text config-menu-cancel";
+              cancel.setAttribute("role", "button");
+              cancel.setAttribute("tabindex", "0");
+              footer.appendChild(cancel);
+            }
             footer.appendChild(apply);
             menu.appendChild(footer);
-          } else {
+          } else if (!config.hideCancel) {
             const cancel = document.createElement("button");
             cancel.type = "button";
             cancel.textContent = "CANCEL";
@@ -3814,6 +4455,36 @@
         }
       };
 
+      const setupConfigMenuTrigger = ({
+        button,
+        menu,
+        onBeforeOpen,
+        onAfterToggle,
+      }) => {
+        if (!button || !menu) {
+          return;
+        }
+        button.addEventListener("click", (event) => {
+          event.stopPropagation();
+          document.querySelectorAll("[data-config-menu]").forEach((other) => {
+            if (other !== button) {
+              other.querySelector(".config-menu")?.classList.remove("open");
+            }
+          });
+          const willOpen = !menu.classList.contains("open");
+          if (willOpen) {
+            onBeforeOpen?.();
+          }
+          menu.classList.toggle("open", willOpen);
+          if (willOpen) {
+            requestAnimationFrame(() => {
+              adjustMenuPosition(menu);
+            });
+          }
+          onAfterToggle?.(willOpen);
+        });
+      };
+
       configButtons.forEach((button, index) => {
         const config = menuConfigForIndex(index);
         if (!config) {
@@ -4086,15 +4757,10 @@
           });
         }
 
-        button.addEventListener("click", (event) => {
-          event.stopPropagation();
-          configButtons.forEach((other) => {
-            if (other !== button) {
-              other.querySelector(".config-menu")?.classList.remove("open");
-            }
-          });
-          const willOpen = !menu.classList.contains("open");
-          if (willOpen) {
+        setupConfigMenuTrigger({
+          button,
+          menu,
+          onBeforeOpen: () => {
             if (config.type === "multi") {
               const snapshot = getMultiSnapshot(menu, config, valueText);
               configMenuState.get(index).snapshot = snapshot;
@@ -4103,17 +4769,14 @@
                 text: valueText?.textContent || "",
               };
             }
-          }
-          menu.classList.toggle("open");
-          if (willOpen) {
-            requestAnimationFrame(() => {
-              document
-                .querySelectorAll(".config-menu.open")
-                .forEach((openMenu) => {
-                  adjustMenuPosition(openMenu);
-                });
-            });
-          }
+          },
+          onAfterToggle: (isOpen) => {
+            if (index === 2) {
+              const enabled = Boolean(isOpen);
+              document.body.classList.toggle("suppress-hover", enabled);
+              document.body.classList.toggle("menu-modal-open", enabled);
+            }
+          },
         });
         if (index === 2) {
           const setMenuBlockState = (enabled) => {
@@ -4139,9 +4802,6 @@
             },
             true,
           );
-          button.addEventListener("click", () => {
-            setMenuBlockState(menu.classList.contains("open"));
-          });
           const escButton = menu.querySelector(".config-menu-esc");
           if (escButton) {
             escButton.addEventListener("click", () => {
@@ -4721,20 +5381,31 @@
           event.stopPropagation();
         });
       }
-      if (limboMenuToggle && limboMenu) {
-        limboMenuToggle.addEventListener("click", (event) => {
-          event.stopPropagation();
-          limboMenu.classList.toggle("open");
-          if (limboMenu.classList.contains("open")) {
-            const mode = (
-              limboControl?.dataset.limboMode || "auto-referrer"
-            ).trim();
-            limboMenuActions.forEach((action) => {
-              const actionMode = action.dataset.limboMenuAction;
-              action.classList.toggle("selected", actionMode === mode);
-            });
-            requestAnimationFrame(() => adjustMenuPosition(limboMenu));
-          }
+      const applyLimboMenuAction = async (kind) => {
+        if (kind === "auto-referrer") {
+          await refreshLimboUrls();
+          setLimboMode("auto-referrer");
+        } else if (kind === "auto-host") {
+          await refreshLimboUrls();
+          setLimboMode("auto-host");
+        } else if (kind === "custom") {
+          setLimboMode("custom", { focus: true });
+        }
+        if (typeof scheduleLidarrSave === "function") {
+          scheduleLidarrSave();
+        }
+      };
+      if (limboMenuToggle && limboMenu && limboMenuActions.length) {
+        setupConfigSelectControl({
+          toggleButton: limboMenuToggle,
+          menu: limboMenu,
+          optionButtons: limboMenuActions,
+          getCurrentValue: () =>
+            String(limboControl?.dataset.limboMode || "auto-referrer").trim(),
+          setCurrentValue: (value) => {
+            applyLimboMenuAction(String(value || ""));
+          },
+          getOptionValue: (button) => button.dataset.limboMenuAction || "",
         });
       }
       if (lidarrTestButton) {
@@ -4750,28 +5421,23 @@
         });
       }
       if (coverartMenuToggle && coverartMenu) {
-        coverartMenuToggle.addEventListener("click", (event) => {
-          event.stopPropagation();
-          coverartMenu.classList.toggle("open");
-          if (coverartMenu.classList.contains("open")) {
-            setCoverartSize(providersList?.dataset.providerCoverartSize || "", {
-              updateDataset: false,
-            });
-            requestAnimationFrame(() => adjustMenuPosition(coverartMenu));
-          }
+        setupConfigSelectControl({
+          toggleButton: coverartMenuToggle,
+          menu: coverartMenu,
+          optionButtons: coverartMenuOptions,
+          getCurrentValue: () =>
+            normalizeCoverartSize(
+              providersList?.dataset.providerCoverartSize || "",
+            ),
+          setCurrentValue: (value) => {
+            setCoverartSize(String(value || ""));
+          },
+          getOptionValue: (button) => button.dataset.coverartOption || "",
         });
       }
       if (coverartMenu) {
         coverartMenu.addEventListener("click", (event) => {
           event.stopPropagation();
-          const option = event.target.closest("[data-coverart-option]");
-          if (!option) {
-            return;
-          }
-          setCoverartSize(option.dataset.coverartOption || "");
-          coverartMenu.classList.remove("open");
-          coverartMenu.style.removeProperty("--menu-shift-x");
-          coverartMenu.style.removeProperty("--menu-shift-y");
         });
       }
       if (limboUrlInput && limboControl) {
@@ -4790,30 +5456,7 @@
           setLimboMode("auto-referrer");
         }
       }
-      limboMenuActions.forEach((action) => {
-        const handler = async () => {
-          const kind = action.dataset.limboMenuAction;
-          if (kind === "auto-referrer") {
-            await refreshLimboUrls();
-            setLimboMode("auto-referrer");
-          } else if (kind === "auto-host") {
-            await refreshLimboUrls();
-            setLimboMode("auto-host");
-          } else if (kind === "custom") {
-            setLimboMode("custom", { focus: true });
-          }
-          if (typeof scheduleLidarrSave === "function") {
-            scheduleLidarrSave();
-          }
-          if (limboMenu) {
-            limboMenu.classList.remove("open");
-          }
-        };
-        action.addEventListener("click", (event) => {
-          event.stopPropagation();
-          handler();
-        });
-      });
+      // limboMenuActions are wired via setupConfigSelectControl above.
       const foldToggle = document.querySelector("[data-fold-toggle]");
       const foldContent = document.querySelector("[data-fold-content]");
       const foldLabel = document.querySelector("[data-fold-label]");
@@ -6219,6 +6862,9 @@
             if (editor) {
               requestAnimationFrame(() => editor.focus());
             }
+            refreshAutoSubmitKeys.clear();
+            refreshAutoSubmitPending = false;
+            refreshAutoSubmitInFlight = false;
             refreshValidationActive = true;
             updateRefreshState();
             if (!refreshWarmupOnOpenDone) {
@@ -6246,6 +6892,9 @@
             settingsRestoreEnabled = false;
           }
           if (modal?.getAttribute("data-modal") === "refresh-modal") {
+            refreshAutoSubmitKeys.clear();
+            refreshAutoSubmitPending = false;
+            refreshAutoSubmitInFlight = false;
             refreshValidationActive = false;
             if (refreshValidateController) {
               refreshValidateController.abort();
@@ -6269,6 +6918,9 @@
             settingsRestoreEnabled = false;
           }
           if (modal?.getAttribute("data-modal") === "refresh-modal") {
+            refreshAutoSubmitKeys.clear();
+            refreshAutoSubmitPending = false;
+            refreshAutoSubmitInFlight = false;
             refreshValidationActive = false;
             if (refreshValidateController) {
               refreshValidateController.abort();
@@ -6285,6 +6937,9 @@
         document.querySelectorAll("[data-modal].open").forEach((modal) => {
           clearPendingProviderEnable(modal);
           if (modal?.getAttribute("data-modal") === "refresh-modal") {
+            refreshAutoSubmitKeys.clear();
+            refreshAutoSubmitPending = false;
+            refreshAutoSubmitInFlight = false;
             refreshValidationActive = false;
             if (refreshValidateController) {
               refreshValidateController.abort();
