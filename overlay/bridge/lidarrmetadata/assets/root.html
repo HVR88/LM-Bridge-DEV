@@ -240,7 +240,6 @@
                 class="settings-nav__item"
                 type="button"
                 data-settings-target="providers"
-                data-test-only
               >
                 PROVIDERS
               </button>
@@ -249,7 +248,6 @@
                 type="button"
                 data-settings-target="metadata"
                 data-priority-type="metadata"
-                data-test-only
               >
                 METADATA
               </button>
@@ -258,7 +256,6 @@
                 type="button"
                 data-settings-target="artist_art"
                 data-priority-type="artistart"
-                data-test-only
               >
                 ARTIST ART
               </button>
@@ -267,7 +264,6 @@
                 type="button"
                 data-settings-target="album_art"
                 data-priority-type="albumart"
-                data-test-only
               >
                 ALBUM ART
               </button>
@@ -276,7 +272,6 @@
                 type="button"
                 data-settings-target="fan_art"
                 data-priority-type="fanart"
-                data-test-only
               >
                 FAN ART
               </button>
@@ -284,7 +279,6 @@
                 class="settings-nav__item"
                 type="button"
                 data-settings-target="downloads"
-                data-test-only
               >
                 DOWNLOADS
               </button>
@@ -549,7 +543,6 @@
               <div
                 class="settings-panel"
                 data-settings-panel="providers"
-                data-test-only
               >
                 <p class="settings-field__label settings-panel__heading">
                   External Data Providers
@@ -593,7 +586,6 @@
               <div
                 class="settings-panel"
                 data-settings-panel="metadata"
-                data-test-only
               >
                 <p class="settings-field__label settings-panel__heading">
                   Metadata Priority
@@ -603,7 +595,6 @@
               <div
                 class="settings-panel"
                 data-settings-panel="artist_art"
-                data-test-only
               >
                 <p class="settings-field__label settings-panel__heading">
                   Artist Art Priority
@@ -613,7 +604,6 @@
               <div
                 class="settings-panel"
                 data-settings-panel="album_art"
-                data-test-only
               >
                 <p class="settings-field__label settings-panel__heading">
                   Album Art Priority
@@ -623,7 +613,6 @@
               <div
                 class="settings-panel"
                 data-settings-panel="fan_art"
-                data-test-only
               >
                 <p class="settings-field__label settings-panel__heading">
                   Fan Art Priority
@@ -633,7 +622,6 @@
               <div
                 class="settings-panel"
                 data-settings-panel="downloads"
-                data-test-only
               >
                 <p class="settings-field__label settings-panel__heading">
                   Downloads
@@ -642,7 +630,6 @@
               <div
                 class="settings-panel"
                 data-settings-panel="services"
-                data-test-only
                 hidden
               >
                 <div
@@ -2303,8 +2290,6 @@
       const priorityEditButton = document.querySelector(
         "[data-service-priority-edit]",
       );
-      let settingsSnapshot = null;
-      let settingsRestoreEnabled = false;
       const resolveProviderId = (id) => {
         const map = {
           coverart: "cover_art_archive",
@@ -3568,7 +3553,28 @@
         }
       };
 
-      const setRefreshAutoRefreshEnabled = (value) => {
+      const persistRefreshSettings = async (override = null) => {
+        if (isLocalPreview) {
+          return;
+        }
+        const payload = {
+          resolve_names: Boolean(refreshResolveToggle?.checked),
+          auto_refresh: Boolean(refreshAutoRefreshEnabled),
+          switch_release_mode: String(refreshAutoReleaseSwitchingMode || "no-change"),
+          ...(override && typeof override === "object" ? override : {}),
+        };
+        try {
+          await fetch("/config/refresh-settings", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+        } catch (error) {
+          // ignore persistence failures
+        }
+      };
+
+      const setRefreshAutoRefreshEnabled = (value, { persist = true } = {}) => {
         refreshAutoRefreshEnabled = Boolean(value);
         if (refreshButton) {
           refreshButton.hidden = refreshAutoRefreshEnabled;
@@ -3595,10 +3601,16 @@
         if (window.limboRefreshControls) {
           window.limboRefreshControls.auto_refresh = refreshAutoRefreshEnabled;
         }
+        if (persist) {
+          void persistRefreshSettings();
+        }
       };
 
       const getRefreshAutoRefreshEnabled = () => refreshAutoRefreshEnabled;
-      const setRefreshAutoReleaseSwitchingMode = (value) => {
+      const setRefreshAutoReleaseSwitchingMode = (
+        value,
+        { persist = true } = {},
+      ) => {
         const normalized = String(value || "")
           .trim()
           .toLowerCase();
@@ -3623,6 +3635,9 @@
                 nextMode,
             );
           });
+        }
+        if (persist) {
+          void persistRefreshSettings();
         }
       };
       const getRefreshAutoReleaseSwitchingMode = () =>
@@ -3977,15 +3992,7 @@
           if (!refreshEditor) {
             return;
           }
-          if (!isLocalPreview) {
-            fetch("/config/refresh-settings", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                resolve_names: Boolean(refreshResolveToggle.checked),
-              }),
-            }).catch(() => {});
-          }
+          void persistRefreshSettings();
           if (!refreshResolveToggle.checked) {
             resetResolvedNames();
             return;
@@ -4083,7 +4090,9 @@
         });
       };
       if (refreshAutoToggleButton && refreshAutoMenu) {
-        setRefreshAutoRefreshEnabled(refreshAutoRefreshEnabled);
+        setRefreshAutoRefreshEnabled(refreshAutoRefreshEnabled, {
+          persist: false,
+        });
         setupConfigSelectControl({
           toggleButton: refreshAutoToggleButton,
           menu: refreshAutoMenu,
@@ -4093,19 +4102,24 @@
           setCurrentValue: (value) =>
             setRefreshAutoRefreshEnabled(
               String(value).toLowerCase() === "auto",
+              { persist: true },
             ),
           getOptionValue: (button) => button.dataset.refreshAutoOption || "",
         });
       }
       if (refreshSwitchingToggleButton && refreshSwitchingMenu) {
-        setRefreshAutoReleaseSwitchingMode(refreshAutoReleaseSwitchingMode);
+        setRefreshAutoReleaseSwitchingMode(refreshAutoReleaseSwitchingMode, {
+          persist: false,
+        });
         setupConfigSelectControl({
           toggleButton: refreshSwitchingToggleButton,
           menu: refreshSwitchingMenu,
           optionButtons: refreshSwitchingMenuOptions,
           getCurrentValue: () => getRefreshAutoReleaseSwitchingMode(),
           setCurrentValue: (value) => {
-            setRefreshAutoReleaseSwitchingMode(String(value || ""));
+            setRefreshAutoReleaseSwitchingMode(String(value || ""), {
+              persist: true,
+            });
           },
           getOptionValue: (button) =>
             button.dataset.refreshSwitchingOption || "",
@@ -4137,6 +4151,14 @@
         const apiKey = sanitizeApiKey(lidarrApiKeyInput?.value || "");
         if (lidarrApiKeyInput) {
           lidarrApiKeyInput.value = apiKey;
+        }
+        const slskdUrl = sanitizeHostPort(slskdUrlInput?.value || "");
+        if (sanitizeUrl && slskdUrlInput && slskdUrl) {
+          slskdUrlInput.value = slskdUrl;
+        }
+        const slskdKey = sanitizeApiKey(slskdKeyInput?.value || "");
+        if (slskdKeyInput) {
+          slskdKeyInput.value = slskdKey;
         }
         const limboMode = (
           limboControl?.dataset.limboMode || "auto-referrer"
@@ -4244,7 +4266,6 @@
           if (lidarrPillValue && payload.lidarr_version) {
             lidarrPillValue.textContent = payload.lidarr_version;
           }
-          settingsRestoreEnabled = false;
         } catch (error) {
           if (!silent) {
             suppressHover();
@@ -4257,6 +4278,74 @@
           await saveLidarrSettings({ silent: false, sanitizeUrl: true });
         });
       }
+      const hydrateConnectionSettings = async () => {
+        if (isLocalPreview) {
+          return;
+        }
+        try {
+          const response = await fetch("/config/lidarr-settings");
+          const payload = await response.json().catch(() => ({}));
+          if (!response.ok || !payload || typeof payload !== "object") {
+            return;
+          }
+          if (slskdUrlInput && typeof payload.slskd_base_url === "string") {
+            slskdUrlInput.value = payload.slskd_base_url;
+          }
+          if (slskdKeyInput && typeof payload.slskd_api_key === "string") {
+            slskdKeyInput.value = payload.slskd_api_key;
+          }
+          if (
+            refreshResolveToggle &&
+            Object.prototype.hasOwnProperty.call(payload, "refresh_resolve_names")
+          ) {
+            refreshResolveToggle.checked = Boolean(payload.refresh_resolve_names);
+          }
+          if (
+            Object.prototype.hasOwnProperty.call(payload, "refresh_auto_refresh")
+          ) {
+            setRefreshAutoRefreshEnabled(Boolean(payload.refresh_auto_refresh), {
+              persist: false,
+            });
+          }
+          if (
+            Object.prototype.hasOwnProperty.call(
+              payload,
+              "refresh_switch_release_mode",
+            )
+          ) {
+            setRefreshAutoReleaseSwitchingMode(
+              payload.refresh_switch_release_mode,
+              { persist: false },
+            );
+          }
+          if (providersList && payload.provider_states) {
+            Object.entries(payload.provider_states).forEach(([id, enabled]) => {
+              if (!id) {
+                return;
+              }
+              const key = `provider${id[0].toUpperCase()}${id.slice(1)}`;
+              providersList.dataset[key] = enabled ? "true" : "false";
+            });
+          }
+          if (payload.service_priority_orders) {
+            servicePriorityOrders = normalizePriorityOrdersPayload(
+              payload.service_priority_orders,
+            );
+          }
+          if (typeof renderProviderList === "function") {
+            renderProviderList();
+          }
+          if (typeof renderPriorityList === "function") {
+            renderPriorityList();
+          }
+          if (typeof filterPriorityMenuOptions === "function") {
+            filterPriorityMenuOptions();
+          }
+        } catch (error) {
+          // ignore hydration failures
+        }
+      };
+      void hydrateConnectionSettings();
       let lidarrSaveTimer = null;
       const scheduleLidarrSave = (options = {}) => {
         if (lidarrSaveTimer) {
@@ -6071,109 +6160,6 @@
           // ignore
         }
       };
-      const captureSettingsSnapshot = () => {
-        settingsSnapshot = {
-          lidarrUrl: lidarrUrlInput?.value || "",
-          lidarrApiKey: lidarrApiKeyInput?.value || "",
-          slskdUrl: slskdUrlInput?.value || "",
-          slskdKey: slskdKeyInput?.value || "",
-          limboMode: limboControl?.dataset.limboMode || "auto-referrer",
-          limboValue: limboUrlInput?.value || "",
-          limboReferrer: limboUrlInput?.dataset.limboReferrer || "",
-          limboHost: limboUrlInput?.dataset.limboHost || "",
-          limboCustom: limboUrlInput?.dataset.limboCustom || "",
-          providersDataset: providersList ? { ...providersList.dataset } : {},
-          providerOrder: getProviderOrder(),
-          servicePriorityOrders: {
-            metadata: normalizePriorityOrder(servicePriorityOrders.metadata),
-            artistart: normalizePriorityOrder(servicePriorityOrders.artistart),
-            albumart: normalizePriorityOrder(servicePriorityOrders.albumart),
-            fanart: normalizePriorityOrder(servicePriorityOrders.fanart),
-          },
-          fanartKey: fanartKeyInput?.value || "",
-          tadbKey: tadbKeyInput?.value || "",
-          discogsKey: discogsKeyInput?.value || "",
-          lastfmKey: lastfmKeyInput?.value || "",
-          lastfmSecret: lastfmSecretInput?.value || "",
-          tidalClientId: tidalClientIdInput?.value || "",
-          tidalClientSecret: tidalClientSecretInput?.value || "",
-          tidalCountry: tidalCountryCodeInput?.value || "",
-          tidalUser: tidalUserInput?.value || "",
-          tidalPassword: tidalUserPasswordInput?.value || "",
-          appleMax: appleMusicMaxInput?.value || "",
-          appleUpscale: appleMusicUpscaleInput?.checked || false,
-          coverartSize: providersList?.dataset.providerCoverartSize || "",
-        };
-        settingsRestoreEnabled = true;
-      };
-      const restoreSettingsSnapshot = () => {
-        if (!settingsSnapshot) {
-          return;
-        }
-        if (lidarrUrlInput) lidarrUrlInput.value = settingsSnapshot.lidarrUrl;
-        if (lidarrApiKeyInput)
-          lidarrApiKeyInput.value = settingsSnapshot.lidarrApiKey;
-        if (slskdUrlInput) slskdUrlInput.value = settingsSnapshot.slskdUrl;
-        if (slskdKeyInput) slskdKeyInput.value = settingsSnapshot.slskdKey;
-        if (limboUrlInput) {
-          limboUrlInput.dataset.limboReferrer = settingsSnapshot.limboReferrer;
-          limboUrlInput.dataset.limboHost = settingsSnapshot.limboHost;
-          limboUrlInput.dataset.limboCustom = settingsSnapshot.limboCustom;
-          limboUrlInput.value = settingsSnapshot.limboValue;
-        }
-        if (limboControl) {
-          limboControl.dataset.limboMode = settingsSnapshot.limboMode;
-        }
-        if (settingsSnapshot.limboMode === "custom") {
-          setLimboMode(settingsSnapshot.limboMode, {
-            value: settingsSnapshot.limboValue,
-          });
-        } else {
-          setLimboMode(settingsSnapshot.limboMode);
-        }
-        if (fanartKeyInput) fanartKeyInput.value = settingsSnapshot.fanartKey;
-        if (tadbKeyInput) tadbKeyInput.value = settingsSnapshot.tadbKey;
-        if (discogsKeyInput)
-          discogsKeyInput.value = settingsSnapshot.discogsKey;
-        if (lastfmKeyInput) lastfmKeyInput.value = settingsSnapshot.lastfmKey;
-        if (lastfmSecretInput)
-          lastfmSecretInput.value = settingsSnapshot.lastfmSecret;
-        if (tidalClientIdInput)
-          tidalClientIdInput.value = settingsSnapshot.tidalClientId;
-        if (tidalClientSecretInput)
-          tidalClientSecretInput.value = settingsSnapshot.tidalClientSecret;
-        if (tidalCountryCodeInput)
-          tidalCountryCodeInput.value = settingsSnapshot.tidalCountry;
-        if (tidalUserInput) tidalUserInput.value = settingsSnapshot.tidalUser;
-        if (tidalUserPasswordInput)
-          tidalUserPasswordInput.value = settingsSnapshot.tidalPassword;
-        if (appleMusicMaxInput)
-          appleMusicMaxInput.value = settingsSnapshot.appleMax;
-        if (appleMusicUpscaleInput)
-          appleMusicUpscaleInput.checked = settingsSnapshot.appleUpscale;
-        if (coverartSizeInput) {
-          setCoverartSize(settingsSnapshot.coverartSize, {
-            updateDataset: true,
-          });
-        }
-        if (providersList) {
-          Object.entries(settingsSnapshot.providersDataset || {}).forEach(
-            ([key, value]) => {
-              providersList.dataset[key] = value;
-            },
-          );
-          setProviderOrder(settingsSnapshot.providerOrder || []);
-          renderProviderList();
-          clearProviderSelection();
-        }
-        if (servicesPriorityList) {
-          servicePriorityOrders = normalizePriorityOrdersPayload(
-            settingsSnapshot.servicePriorityOrders,
-          );
-          renderPriorityList();
-          clearPrioritySelection();
-        }
-      };
       const getProviderEnabled = (id) => {
         if (!providersList) {
           return false;
@@ -7258,7 +7244,7 @@
           const modal = getModalById(target);
           openModal(modal);
           if (target === "settings") {
-            captureSettingsSnapshot();
+            void hydrateConnectionSettings();
           }
           if (target === "refresh-modal") {
             const editor = document.querySelector("[data-refresh-editor]");
@@ -7288,12 +7274,6 @@
         button.addEventListener("click", () => {
           const modal = button.closest("[data-modal]");
           clearPendingProviderEnable(modal);
-          if (modal?.getAttribute("data-modal") === "settings") {
-            if (settingsRestoreEnabled) {
-              restoreSettingsSnapshot();
-            }
-            settingsRestoreEnabled = false;
-          }
           if (modal?.getAttribute("data-modal") === "refresh-modal") {
             refreshAutoSubmitKeys.clear();
             refreshAutoSubmitPending = false;
@@ -7322,12 +7302,6 @@
             return;
           }
           clearPendingProviderEnable(modal);
-          if (modal?.getAttribute("data-modal") === "settings") {
-            if (settingsRestoreEnabled) {
-              restoreSettingsSnapshot();
-            }
-            settingsRestoreEnabled = false;
-          }
           if (modal?.getAttribute("data-modal") === "refresh-modal") {
             refreshAutoSubmitKeys.clear();
             refreshAutoSubmitPending = false;
@@ -7355,12 +7329,6 @@
             if (refreshValidateController) {
               refreshValidateController.abort();
             }
-          }
-          if (modal?.getAttribute("data-modal") === "settings") {
-            if (settingsRestoreEnabled) {
-              restoreSettingsSnapshot();
-            }
-            settingsRestoreEnabled = false;
           }
           closeModal(modal);
         });

@@ -92,6 +92,8 @@ _COVERART_ERROR: Optional[bool] = None
 _MUSICBRAINZ_ERROR: Optional[bool] = None
 _WIKIPEDIA_ERROR: Optional[bool] = None
 _REFRESH_RESOLVE_NAMES: Optional[bool] = None
+_REFRESH_AUTO_REFRESH: Optional[bool] = None
+_REFRESH_SWITCH_RELEASE_MODE: Optional[str] = None
 _SERVICE_PRIORITY_ORDERS: Dict[str, List[str]] = {
     "metadata": [],
     "artistart": [],
@@ -267,7 +269,8 @@ def _load_lidarr_settings() -> None:
     global _APPLE_MUSIC_ENABLED, _PLEX_ENABLED
     global _APPLE_MUSIC_MAX_IMAGE_SIZE, _APPLE_MUSIC_ALLOW_UPSCALE
     global _COVERART_ENABLED, _COVERART_SIZE, _MUSICBRAINZ_ENABLED, _WIKIPEDIA_ENABLED
-    global _REFRESH_RESOLVE_NAMES, _SERVICE_PRIORITY_ORDERS
+    global _REFRESH_RESOLVE_NAMES, _REFRESH_AUTO_REFRESH
+    global _REFRESH_SWITCH_RELEASE_MODE, _SERVICE_PRIORITY_ORDERS
     try:
         data = json.loads(_SETTINGS_FILE.read_text(encoding="utf-8"))
     except Exception:
@@ -320,6 +323,8 @@ def _load_lidarr_settings() -> None:
         _MUSICBRAINZ_ENABLED = True
         _WIKIPEDIA_ENABLED = True
         _REFRESH_RESOLVE_NAMES = True
+        _REFRESH_AUTO_REFRESH = True
+        _REFRESH_SWITCH_RELEASE_MODE = "no-change"
         _SERVICE_PRIORITY_ORDERS = {
             "metadata": [],
             "artistart": [],
@@ -358,6 +363,13 @@ def _load_lidarr_settings() -> None:
     _REFRESH_RESOLVE_NAMES = _read_enabled_flag(
         data.get("refresh_resolve_names"), True
     )
+    _REFRESH_AUTO_REFRESH = _read_enabled_flag(
+        data.get("refresh_auto_refresh"), True
+    )
+    switch_release_mode = str(data.get("refresh_switch_release_mode") or "").strip().lower()
+    if switch_release_mode not in {"auto", "off", "no-change"}:
+        switch_release_mode = "no-change"
+    _REFRESH_SWITCH_RELEASE_MODE = switch_release_mode
     raw_orders = data.get("service_priority_orders")
     normalized_orders: Dict[str, List[str]] = {
         "metadata": [],
@@ -467,6 +479,10 @@ def _persist_lidarr_settings() -> None:
             "musicbrainz_enabled": bool(_MUSICBRAINZ_ENABLED),
             "wikipedia_enabled": bool(_WIKIPEDIA_ENABLED),
             "refresh_resolve_names": bool(_REFRESH_RESOLVE_NAMES),
+            "refresh_auto_refresh": bool(_REFRESH_AUTO_REFRESH),
+            "refresh_switch_release_mode": _REFRESH_SWITCH_RELEASE_MODE
+            if _REFRESH_SWITCH_RELEASE_MODE in {"auto", "off", "no-change"}
+            else "no-change",
             "service_priority_orders": {
                 "metadata": list(_SERVICE_PRIORITY_ORDERS.get("metadata") or []),
                 "artistart": list(_SERVICE_PRIORITY_ORDERS.get("artistart") or []),
@@ -1073,6 +1089,40 @@ def _set_refresh_resolve_names(value: bool, *, persist: bool) -> None:
 
 def get_refresh_resolve_names() -> bool:
     return bool(_REFRESH_RESOLVE_NAMES)
+
+
+def set_refresh_auto_refresh(value: bool) -> None:
+    _set_refresh_auto_refresh(value, persist=True)
+
+
+def _set_refresh_auto_refresh(value: bool, *, persist: bool) -> None:
+    global _REFRESH_AUTO_REFRESH
+    _REFRESH_AUTO_REFRESH = bool(value)
+    if persist:
+        _persist_lidarr_settings()
+
+
+def get_refresh_auto_refresh() -> bool:
+    return bool(_REFRESH_AUTO_REFRESH)
+
+
+def set_refresh_switch_release_mode(value: str) -> None:
+    _set_refresh_switch_release_mode(value, persist=True)
+
+
+def _set_refresh_switch_release_mode(value: str, *, persist: bool) -> None:
+    global _REFRESH_SWITCH_RELEASE_MODE
+    mode = str(value or "").strip().lower()
+    if mode not in {"auto", "off", "no-change"}:
+        mode = "no-change"
+    _REFRESH_SWITCH_RELEASE_MODE = mode
+    if persist:
+        _persist_lidarr_settings()
+
+
+def get_refresh_switch_release_mode() -> str:
+    mode = str(_REFRESH_SWITCH_RELEASE_MODE or "").strip().lower()
+    return mode if mode in {"auto", "off", "no-change"} else "no-change"
 
 
 def set_musicbrainz_enabled(value: bool) -> None:

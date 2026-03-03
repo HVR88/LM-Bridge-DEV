@@ -196,6 +196,8 @@ def _is_provider_enabled(provider_id: str) -> bool:
         return root_patch.get_lastfm_enabled()
     if provider_id == "discogs":
         return root_patch.get_discogs_enabled()
+    if provider_id == "discogs_mirror":
+        return root_patch.get_discogs_mirror_enabled()
     if provider_id == "tidal":
         return root_patch.get_tidal_enabled()
     if provider_id == "plex":
@@ -257,6 +259,23 @@ def register_config_routes() -> None:
                         "lidarr_api_key": root_patch.get_lidarr_api_key(),
                         "slskd_base_url": root_patch.get_slskd_base_url(),
                         "slskd_api_key": root_patch.get_slskd_api_key(),
+                        "provider_states": {
+                            "fanart": root_patch.get_fanart_enabled(),
+                            "tadb": root_patch.get_tadb_enabled(),
+                            "lastfm": root_patch.get_lastfm_enabled(),
+                            "discogs": root_patch.get_discogs_enabled(),
+                            "discogs_mirror": root_patch.get_discogs_mirror_enabled(),
+                            "plex": root_patch.get_plex_enabled(),
+                            "tidal": root_patch.get_tidal_enabled(),
+                            "apple": root_patch.get_apple_music_enabled(),
+                            "coverart": root_patch.get_coverart_enabled(),
+                            "musicbrainz": root_patch.get_musicbrainz_enabled(),
+                            "wikipedia": root_patch.get_wikipedia_enabled(),
+                        },
+                        "service_priority_orders": root_patch.get_service_priority_orders(),
+                        "refresh_resolve_names": root_patch.get_refresh_resolve_names(),
+                        "refresh_auto_refresh": root_patch.get_refresh_auto_refresh(),
+                        "refresh_switch_release_mode": root_patch.get_refresh_switch_release_mode(),
                         "limbo_url_mode": root_patch.get_limbo_url_mode(),
                         "limbo_url": root_patch.get_limbo_url_custom(),
                         "fanart_key": root_patch.get_fanart_key(),
@@ -457,9 +476,19 @@ def register_config_routes() -> None:
         @upstream_app.app.route("/config/refresh-settings", methods=["POST"])
         async def _limbo_refresh_settings():
             payload = await request.get_json(silent=True) or {}
+            if not isinstance(payload, dict):
+                payload = {}
             root_patch.set_refresh_resolve_names(
                 _is_truthy(payload.get("resolve_names"))
             )
+            if "auto_refresh" in payload:
+                root_patch.set_refresh_auto_refresh(
+                    _is_truthy(payload.get("auto_refresh"))
+                )
+            if "switch_release_mode" in payload:
+                root_patch.set_refresh_switch_release_mode(
+                    str(payload.get("switch_release_mode") or "").strip().lower()
+                )
             return jsonify({"ok": True})
 
     if "/config/service-priority" not in existing_rules:
