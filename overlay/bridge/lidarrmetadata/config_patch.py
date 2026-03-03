@@ -52,6 +52,48 @@ async def _fetch_json(session: aiohttp.ClientSession, url: str, *, headers: Opti
         return False, {"error": str(exc)}
 
 
+async def _probe_slskd_connection(base_url: str, api_key: str) -> Tuple[bool, str, str]:
+    if not base_url or not api_key:
+        return False, "SLSKD URL or API key is missing.", ""
+    headers = {"X-Api-Key": api_key}
+    candidates = (
+        "/api/v0/application",
+        "/api/v0/server",
+        "/api/v1/system/status",
+    )
+    timeout = aiohttp.ClientTimeout(total=3)
+    try:
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            for path in candidates:
+                url = base_url.rstrip("/") + path
+                async with session.get(url, headers=headers) as resp:
+                    if resp.status in {401, 403}:
+                        return False, "SLSKD API key is invalid.", ""
+                    if resp.status == 404:
+                        continue
+                    if resp.status != 200:
+                        return False, f"SLSKD returned unexpected status {resp.status}.", ""
+                    data = await resp.json(content_type=None)
+                    if not isinstance(data, dict):
+                        data = {}
+                    version = ""
+                    for key in ("version", "appVersion", "packageVersion", "buildVersion"):
+                        value = data.get(key)
+                        if value:
+                            version = str(value).strip()
+                            break
+                    if not version:
+                        app_data = data.get("application")
+                        if isinstance(app_data, dict):
+                            nested = app_data.get("version")
+                            if nested:
+                                version = str(nested).strip()
+                    return True, "", version
+    except Exception:
+        return False, "Unable to connect to SLSKD.", ""
+    return False, "SLSKD endpoint not found (tried v0 and v1 status routes).", ""
+
+
 async def _test_fanart(session: aiohttp.ClientSession) -> bool:
     key = root_patch.get_fanart_key()
     if not key:
@@ -257,27 +299,9 @@ def register_config_routes() -> None:
                 payload = {}
             base_url = str(payload.get("slskd_base_url") or "").strip()
             api_key = str(payload.get("slskd_api_key") or "").strip()
-            if not base_url or not api_key:
-                return jsonify({"ok": False, "error": "SLSKD URL or API key is missing."})
-            url = base_url.rstrip("/") + "/api/v1/system/status"
-            headers = {"X-Api-Key": api_key}
-            try:
-                timeout = aiohttp.ClientTimeout(total=3)
-                async with aiohttp.ClientSession(timeout=timeout) as session:
-                    async with session.get(url, headers=headers) as resp:
-                        if resp.status in {401, 403}:
-                            return jsonify({"ok": False, "error": "API key is invalid."})
-                        if resp.status != 200:
-                            return jsonify({"ok": False, "error": f"Unexpected status {resp.status}."})
-                        data = await resp.json()
-            except Exception:
-                return jsonify({"ok": False, "error": "Unable to connect."})
-            version = None
-            for key in ("version", "appVersion", "packageVersion", "buildVersion"):
-                value = data.get(key)
-                if value:
-                    version = str(value).strip()
-                    break
+            ok, error, version = await _probe_slskd_connection(base_url, api_key)
+            if not ok:
+                return jsonify({"ok": False, "error": error})
             return jsonify({"ok": True, "version": version or ""})
 
     if "/config/lidarr-settings" not in existing_rules:
@@ -429,27 +453,11 @@ def register_config_routes() -> None:
                     ),
                     400,
                 )
-            # Mirror Lidarr validation style.
-            url = slskd_base_url.rstrip("/") + "/api/v1/system/status"
-            headers = {"X-Api-Key": slskd_api_key}
-            try:
-                timeout = aiohttp.ClientTimeout(total=3)
-                async with aiohttp.ClientSession(timeout=timeout) as session:
-                    async with session.get(url, headers=headers) as resp:
-                        if resp.status in {401, 403}:
-                            return jsonify({"ok": False, "error": "SLSKD API key is invalid."}), 400
-                        if resp.status != 200:
-                            return (
-                                jsonify(
-                                    {
-                                        "ok": False,
-                                        "error": f"SLSKD returned unexpected status {resp.status}.",
-                                    }
-                                ),
-                                400,
-                            )
-            except Exception:
-                return jsonify({"ok": False, "error": "Unable to connect to SLSKD."}), 400
+            ok, error, _version = await _probe_slskd_connection(
+                slskd_base_url, slskd_api_key
+            )
+            if not ok:
+                return jsonify({"ok": False, "error": error}), 400
             root_patch.set_slskd_base_url(slskd_base_url)
             root_patch.set_slskd_api_key(slskd_api_key)
             return jsonify({"ok": True, "validated": True})

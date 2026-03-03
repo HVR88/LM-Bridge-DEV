@@ -2659,6 +2659,128 @@
           });
         });
       }
+      const validateSettingsForBackdropClose = async () => {
+        const showSettingsCloseWarning = (message) => {
+          openConfirm(
+            message,
+            async () => {
+              if (lidarrSaveTimer) {
+                clearTimeout(lidarrSaveTimer);
+                lidarrSaveTimer = null;
+              }
+              if (slskdSaveTimer) {
+                clearTimeout(slskdSaveTimer);
+                slskdSaveTimer = null;
+              }
+              await hydrateConnectionSettings();
+              const settingsModal = getModalById("settings");
+              if (settingsModal) {
+                clearPendingProviderEnable(settingsModal);
+                closeModal(settingsModal);
+              }
+            },
+            {
+              title: "Warning",
+              cancelLabel: "CLOSE",
+              okLabel: "IGNORE",
+            },
+          );
+        };
+        const lidarrUrl = sanitizeHostPort(lidarrUrlInput?.value || "");
+        const lidarrKey = sanitizeApiKey(lidarrApiKeyInput?.value || "");
+        if (lidarrUrlInput && lidarrUrl) {
+          lidarrUrlInput.value = lidarrUrl;
+        }
+        if (lidarrApiKeyInput) {
+          lidarrApiKeyInput.value = lidarrKey;
+        }
+        if (!lidarrUrl) {
+          suppressHover();
+          showSettingsCloseWarning("Lidarr URL is required.");
+          return false;
+        }
+        if (!lidarrKey) {
+          suppressHover();
+          showSettingsCloseWarning(
+            "Lidarr API key is required when Lidarr URL is set.",
+          );
+          return false;
+        }
+        try {
+          const lidarrResp = await fetch("/config/lidarr-test", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              lidarr_base_url: lidarrUrl,
+              lidarr_api_key: lidarrKey,
+            }),
+          });
+          const lidarrPayload = await lidarrResp.json().catch(() => ({}));
+          if (!lidarrResp.ok || !lidarrPayload?.ok) {
+            suppressHover();
+            showSettingsCloseWarning(
+              lidarrPayload?.error
+                ? `Lidarr connection failed: ${lidarrPayload.error}`
+                : "Lidarr URL can't connect.",
+            );
+            return false;
+          }
+        } catch (error) {
+          suppressHover();
+          showSettingsCloseWarning("Lidarr URL can't connect.");
+          return false;
+        }
+
+        const slskdUrl = sanitizeHostPort(slskdUrlInput?.value || "");
+        const slskdKey = sanitizeApiKey(slskdKeyInput?.value || "");
+        if (slskdUrlInput && slskdUrl) {
+          slskdUrlInput.value = slskdUrl;
+        }
+        if (slskdKeyInput) {
+          slskdKeyInput.value = slskdKey;
+        }
+        if (!slskdUrl && slskdKey) {
+          suppressHover();
+          showSettingsCloseWarning(
+            "SLSKD URL is required when SLSKD API key is set.",
+          );
+          return false;
+        }
+        if (slskdUrl && !slskdKey) {
+          suppressHover();
+          showSettingsCloseWarning(
+            "SLSKD API key is required when SLSKD URL is set.",
+          );
+          return false;
+        }
+        if (slskdUrl && slskdKey) {
+          try {
+            const slskdResp = await fetch("/config/slskd-test", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                slskd_base_url: slskdUrl,
+                slskd_api_key: slskdKey,
+              }),
+            });
+            const slskdPayload = await slskdResp.json().catch(() => ({}));
+            if (!slskdResp.ok || !slskdPayload?.ok) {
+              suppressHover();
+              showSettingsCloseWarning(
+                slskdPayload?.error
+                  ? `SLSKD connection failed: ${slskdPayload.error}`
+                  : "SLSKD URL can't connect.",
+              );
+              return false;
+            }
+          } catch (error) {
+            suppressHover();
+            showSettingsCloseWarning("SLSKD URL can't connect.");
+            return false;
+          }
+        }
+        return true;
+      };
 
       const testLidarrConnection = async () => {
         const baseUrl = sanitizeHostPort(lidarrUrlInput?.value || "");
@@ -4428,6 +4550,25 @@
           const payload = await response.json().catch(() => ({}));
           if (!response.ok || !payload || typeof payload !== "object") {
             return;
+          }
+          if (lidarrUrlInput && typeof payload.lidarr_base_url === "string") {
+            lidarrUrlInput.value = payload.lidarr_base_url;
+          }
+          if (lidarrApiKeyInput && typeof payload.lidarr_api_key === "string") {
+            lidarrApiKeyInput.value = payload.lidarr_api_key;
+          }
+          if (limboUrlInput && typeof payload.limbo_url === "string") {
+            limboUrlInput.value = payload.limbo_url;
+            limboUrlInput.dataset.limboCustom = payload.limbo_url;
+          }
+          if (
+            limboControl &&
+            typeof payload.limbo_url_mode === "string" &&
+            payload.limbo_url_mode
+          ) {
+            setLimboMode(payload.limbo_url_mode, {
+              value: payload.limbo_url,
+            });
           }
           if (slskdUrlInput && typeof payload.slskd_base_url === "string") {
             slskdUrlInput.value = payload.slskd_base_url;
@@ -7459,7 +7600,7 @@
       });
 
       document.querySelectorAll("[data-modal-backdrop]").forEach((backdrop) => {
-        backdrop.addEventListener("click", () => {
+        backdrop.addEventListener("click", async () => {
           const modal = backdrop.closest("[data-modal]");
           const openedAt = Number(modal?.dataset?.openedAt || 0);
           if (
@@ -7471,6 +7612,12 @@
           }
           if (modal && modal.hasAttribute("data-modal-static")) {
             return;
+          }
+          if (modal?.getAttribute("data-modal") === "settings") {
+            const canClose = await validateSettingsForBackdropClose();
+            if (!canClose) {
+              return;
+            }
           }
           clearPendingProviderEnable(modal);
           if (modal?.getAttribute("data-modal") === "refresh-modal") {
@@ -7486,11 +7633,20 @@
         });
       });
 
-      document.addEventListener("keydown", (event) => {
+      document.addEventListener("keydown", async (event) => {
         if (event.key !== "Escape") {
           return;
         }
-        document.querySelectorAll("[data-modal].open").forEach((modal) => {
+        const openModals = Array.from(
+          document.querySelectorAll("[data-modal].open"),
+        );
+        for (const modal of openModals) {
+          if (modal?.getAttribute("data-modal") === "settings") {
+            const canClose = await validateSettingsForBackdropClose();
+            if (!canClose) {
+              continue;
+            }
+          }
           clearPendingProviderEnable(modal);
           if (modal?.getAttribute("data-modal") === "refresh-modal") {
             refreshAutoSubmitKeys.clear();
@@ -7502,7 +7658,7 @@
             }
           }
           closeModal(modal);
-        });
+        }
       });
 
       if (!refreshWarmupOnLoadDone) {
