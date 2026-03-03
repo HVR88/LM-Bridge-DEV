@@ -723,7 +723,7 @@
                 </div>
                 <div class="refresh-switching-config">
                   <span class="refresh-switching-config__label"
-                    >UPDATE 'SWITCH RELEASE'</span
+                    >SET 'SWITCH RELEASE' TO:</span
                   >
                   <div class="refresh-switching-config__row">
                     <div class="config-value refresh-switching-config__value">
@@ -2745,6 +2745,20 @@
           });
         });
       };
+      const resetResolvedNames = () => {
+        refreshTokenNames.clear();
+        if (!refreshEditor) {
+          return;
+        }
+        refreshEditor.querySelectorAll(".token").forEach((tokenEl) => {
+          const token = tokenEl.dataset.token || "";
+          const textEl = tokenEl.querySelector(".token-text");
+          if (textEl) {
+            textEl.textContent = token;
+          }
+          tokenEl.removeAttribute("title");
+        });
+      };
 
       const runRefreshNameResolve = async (mbids) => {
         if (!refreshValidationActive || !mbids.size) {
@@ -3547,15 +3561,22 @@
         ) {
           return;
         }
+        const switchMode = getRefreshAutoReleaseSwitchingMode();
+        const requestPayload = {
+          mbids,
+          lidarr_ids: lidarrIds,
+        };
+        if (switchMode === "auto") {
+          requestPayload.anyReleaseOk = true;
+        } else if (switchMode === "off") {
+          requestPayload.anyReleaseOk = false;
+        }
         refreshButton.disabled = true;
         try {
           const response = await fetch("/config/refresh-releases", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              mbids,
-              lidarr_ids: lidarrIds,
-            }),
+            body: JSON.stringify(requestPayload),
           });
           const payload = await response.json().catch(() => ({}));
           if (!response.ok || !payload.ok) {
@@ -3625,11 +3646,19 @@
           openConfirm(
             "Refreshing all releases will create a series of long running processes in Lidarr. These may block or slow down other actions while running.",
             async () => {
+              const switchMode = getRefreshAutoReleaseSwitchingMode();
+              const requestPayload = {};
+              if (switchMode === "auto") {
+                requestPayload.anyReleaseOk = true;
+              } else if (switchMode === "off") {
+                requestPayload.anyReleaseOk = false;
+              }
               refreshAllButton.disabled = true;
               try {
                 const response = await fetch("/config/refresh-all-artists", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify(requestPayload),
                 });
                 const payload = await response.json().catch(() => ({}));
                 if (!response.ok || !payload.ok) {
@@ -3642,15 +3671,24 @@
                   return;
                 }
                 const totalArtists = Number(payload.total_artists || 0);
-                const queuedArtists = Array.isArray(payload.queued_artist_ids)
-                  ? payload.queued_artist_ids.length
+                const queuedRequests = Array.isArray(payload.queued_ids)
+                  ? payload.queued_ids.length
                   : 0;
+                const queuedKind = String(
+                  payload.queued_kind || "request",
+                ).toLowerCase();
+                const totalAlbums = Number(payload.total_albums || 0);
                 const errors = Array.isArray(payload.errors)
                   ? payload.errors.length
                   : 0;
                 suppressHover();
                 openInfo(
-                  `Queued ${queuedArtists} refresh request(s) across ${totalArtists} artist(s).` +
+                  `Queued ${queuedRequests} ${
+                    queuedKind === "album" ? "album" : "artist"
+                  } refresh request(s)` +
+                    (queuedKind === "album"
+                      ? ` across ${totalArtists} artist(s) and ${totalAlbums} album(s).`
+                      : ` across ${totalArtists} artist(s).`) +
                     (errors ? ` Errors: ${errors}.` : ""),
                 );
               } catch (error) {
@@ -3683,6 +3721,7 @@
             }).catch(() => {});
           }
           if (!refreshResolveToggle.checked) {
+            resetResolvedNames();
             return;
           }
           const { mbids } = getTokenSets();

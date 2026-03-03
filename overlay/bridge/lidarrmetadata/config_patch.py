@@ -711,6 +711,10 @@ def register_config_routes() -> None:
             payload = await request.get_json(silent=True) or {}
             lidarr_ids = _parse_int_list(payload.get("lidarr_ids") or payload.get("lidarrIds"))
             mbids = _parse_mbid_list(payload.get("mbids") or payload.get("mbid") or payload.get("foreignAlbumIds"))
+            any_release_ok_raw = payload.get("anyReleaseOk")
+            any_release_ok: Optional[bool] = None
+            if isinstance(any_release_ok_raw, bool):
+                any_release_ok = any_release_ok_raw
 
             base_url = root_patch.get_lidarr_base_url()
             api_key = root_patch.get_lidarr_api_key()
@@ -799,8 +803,13 @@ def register_config_routes() -> None:
                 for album_id in all_ids:
                     try:
                         cmd_url = base_url.rstrip("/") + "/api/v1/command"
-                        payload = {"name": "RefreshAlbum", "albumId": album_id}
-                        async with session.post(cmd_url, headers=headers, json=payload) as resp:
+                        command_payload: Dict[str, Any] = {
+                            "name": "RefreshAlbum",
+                            "albumId": album_id,
+                        }
+                        if any_release_ok is not None:
+                            command_payload["anyReleaseOk"] = any_release_ok
+                        async with session.post(cmd_url, headers=headers, json=command_payload) as resp:
                             if resp.status not in {200, 201}:
                                 errors.append(f"Album {album_id}: status {resp.status}")
                                 continue
@@ -831,6 +840,12 @@ def register_config_routes() -> None:
 
     if "/config/refresh-all-artists" not in existing_rules:
         async def _limbo_refresh_all_artists():
+            payload = await request.get_json(silent=True) or {}
+            any_release_ok_raw = payload.get("anyReleaseOk")
+            any_release_ok: Optional[bool] = None
+            if isinstance(any_release_ok_raw, bool):
+                any_release_ok = any_release_ok_raw
+
             base_url = root_patch.get_lidarr_base_url()
             api_key = root_patch.get_lidarr_api_key()
             if not base_url or not api_key:
@@ -838,7 +853,9 @@ def register_config_routes() -> None:
 
             errors: List[str] = []
             artist_ids: List[int] = []
+            album_ids: List[int] = []
             queued: List[int] = []
+            queued_kind = "artist"
             timeout = aiohttp.ClientTimeout(total=60)
             headers = {"X-Api-Key": api_key}
 
@@ -876,22 +893,62 @@ def register_config_routes() -> None:
                 artist_ids = sorted(set(artist_ids))
                 cmd_url = base_url.rstrip("/") + "/api/v1/command"
 
-                for artist_id in artist_ids:
-                    try:
-                        payload = {"name": "RefreshArtist", "artistId": artist_id}
-                        async with session.post(cmd_url, headers=headers, json=payload) as resp:
-                            if resp.status not in {200, 201}:
-                                errors.append(f"Artist {artist_id}: status {resp.status}")
-                                continue
-                        queued.append(artist_id)
-                    except Exception as exc:
-                        errors.append(f"Artist {artist_id}: {exc}")
+                if any_release_ok is None:
+                    for artist_id in artist_ids:
+                        try:
+                            command_payload = {"name": "RefreshArtist", "artistId": artist_id}
+                            async with session.post(cmd_url, headers=headers, json=command_payload) as resp:
+                                if resp.status not in {200, 201}:
+                                    errors.append(f"Artist {artist_id}: status {resp.status}")
+                                    continue
+                            queued.append(artist_id)
+                        except Exception as exc:
+                            errors.append(f"Artist {artist_id}: {exc}")
+                else:
+                    queued_kind = "album"
+                    for artist_id in artist_ids:
+                        try:
+                            async with session.get(
+                                base_url.rstrip("/") + "/api/v1/album",
+                                headers=headers,
+                                params={"artistId": artist_id},
+                            ) as resp:
+                                if resp.status != 200:
+                                    errors.append(f"Artist {artist_id}: album lookup status {resp.status}")
+                                    continue
+                                albums = await resp.json()
+                        except Exception as exc:
+                            errors.append(f"Artist {artist_id}: album lookup {exc}")
+                            continue
+
+                        for item in albums or []:
+                            album_id = item.get("id")
+                            if isinstance(album_id, int):
+                                album_ids.append(album_id)
+
+                    album_ids = sorted(set(album_ids))
+                    for album_id in album_ids:
+                        try:
+                            command_payload: Dict[str, Any] = {
+                                "name": "RefreshAlbum",
+                                "albumId": album_id,
+                                "anyReleaseOk": any_release_ok,
+                            }
+                            async with session.post(cmd_url, headers=headers, json=command_payload) as resp:
+                                if resp.status not in {200, 201}:
+                                    errors.append(f"Album {album_id}: status {resp.status}")
+                                    continue
+                            queued.append(album_id)
+                        except Exception as exc:
+                            errors.append(f"Album {album_id}: {exc}")
 
             return jsonify(
                 {
                     "ok": True,
                     "total_artists": len(artist_ids),
-                    "queued_artist_ids": queued,
+                    "total_albums": len(album_ids),
+                    "queued_ids": queued,
+                    "queued_kind": queued_kind,
                     "errors": errors,
                 }
             )

@@ -8,6 +8,8 @@ research/
 **/.DS_Store
 limbo.code-workspace
 .vscode/
+**/__pycache__/
+**/*.py[cod]
 
 # Deploy outputs
 dist/
